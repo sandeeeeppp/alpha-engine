@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 
 export type LogEntry = {
   type: 'agent_status' | 'agent_action';
@@ -10,21 +10,30 @@ export function useAlphaStream() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [tokens, setTokens] = useState('');
   const [signal, setSignal] = useState<any>(null);
+  // AbortController ref — persists across renders without triggering re-renders
+  const controllerRef = useRef<AbortController | null>(null);
 
   const startStream = useCallback(async (query: string) => {
+    // Cancel any in-flight request before starting a new one
+    if (controllerRef.current) {
+      controllerRef.current.abort();
+    }
+    controllerRef.current = new AbortController();
+
     setIsStreaming(true);
     setLogs([]);
     setTokens('');
     setSignal(null);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/analyze`, {
+      const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'text/event-stream',
         },
         body: JSON.stringify({ query }),
+        signal: controllerRef.current.signal, // bind cancellation token
       });
 
       if (!response.body) throw new Error('No readable stream available.');
@@ -35,13 +44,13 @@ export function useAlphaStream() {
 
       while (true) {
         const { done, value } = await reader.read();
-        
+
         if (value) {
           buffer += decoder.decode(value, { stream: true });
           const parts = buffer.split('\n\n');
-          
-          // The last element is either an empty string (if buffer ended exactly with \n\n)
-          // or an incomplete chunk. Keep it in the buffer.
+
+          // The last element is either empty (buffer ended exactly with \n\n)
+          // or an incomplete chunk — keep it in the buffer.
           buffer = parts.pop() || '';
 
           for (const part of parts) {
@@ -60,11 +69,11 @@ export function useAlphaStream() {
             if (event && data) {
               try {
                 const parsedData = JSON.parse(data);
-                
+
                 switch (event) {
                   case 'agent_status':
                   case 'agent_action':
-                    setLogs((prev) => [...prev, { type: event, payload: parsedData }]);
+                    setLogs((prev) => [...prev, { type: event as LogEntry['type'], payload: parsedData }]);
                     break;
                   case 'agent_token':
                     setTokens((prev) => prev + (parsedData.content || ''));
@@ -75,9 +84,14 @@ export function useAlphaStream() {
                   case 'done':
                     setIsStreaming(false);
                     return;
+                  case 'agent_error':
+                    console.error('[alpha-stream] Agent error:', parsedData);
+                    setIsStreaming(false);
+                    return;
                 }
               } catch (e) {
-                console.error('Failure parsing stream event payload', data, e);
+                // Partial line — will be reassembled in the next iteration
+                console.warn('[alpha-stream] Failed to parse stream event payload:', data, e);
               }
             }
           }
@@ -85,12 +99,25 @@ export function useAlphaStream() {
 
         if (done) break;
       }
-    } catch (error) {
-      console.error('Streaming request failed', error);
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        // Expected — user navigated away or triggered a new query
+        console.info('[alpha-stream] Stream aborted.');
+      } else {
+        console.error('[alpha-stream] Streaming request failed:', err);
+      }
     } finally {
       setIsStreaming(false);
     }
   }, []);
 
-  return { isStreaming, logs, tokens, signal, startStream };
+  const stopStream = useCallback(() => {
+    if (controllerRef.current) {
+      controllerRef.current.abort();
+      controllerRef.current = null;
+    }
+    setIsStreaming(false);
+  }, []);
+
+  return { isStreaming, logs, tokens, signal, startStream, stopStream };
 }

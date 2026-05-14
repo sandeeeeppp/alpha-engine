@@ -1,14 +1,84 @@
-# Secrets
+# ─────────────────────────────────────────────────────────────
+#  Alpha Engine — .gitignore
+#  Comprehensive ignore file for a FastAPI + Next.js monorepo.
+# ─────────────────────────────────────────────────────────────
+
+# ── Private / Internal Documentation ─────────────────────────
+ARCHITECTURE.md
+DEPLOYMENT_STATUS.md
+PRIVATE_DEV_LOG.md
+
+# ── Environment Variables & Secrets ──────────────────────────
 .env
 .env.*
 !.env.example
+# Next.js local env override
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# Python
+# ── Python ────────────────────────────────────────────────────
 __pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+
+# Virtual environments
 .venv/
 venv/
+env/
+ENV/
 
-# Next.js / Node
+# Distribution / packaging
+*.egg-info/
+dist/
+build/
+*.egg
+*.whl
+.eggs/
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Type checking
+.pytype/
+.pyre/
+
+# ── Next.js / Node ────────────────────────────────────────────
 node_modules/
 .next/
 out/
+.turbo/
+# Build info artifacts
+*.tsbuildinfo
+next-env.d.ts
+
+# ── Local DB / Data Files ─────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── OS-Specific Junk ─────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ── Editor / IDE ──────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

@@ -1,11 +1,11 @@
-import os
+﻿import os
 from dotenv import load_dotenv
 from pinecone import Pinecone, ServerlessSpec
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_text_splitters import MarkdownHeaderTextSplitter
+from backend.embed import embed_text
 
-# Load .env from the backend folder
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', 'backend', '.env'))
+# Load .env from the root folder
+load_dotenv()
 
 def main():
     pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
@@ -22,11 +22,6 @@ def main():
         )
     
     index = pc.Index(index_name)
-    
-    emb = GoogleGenerativeAIEmbeddings(
-        model="models/text-embedding-004",
-        google_api_key=os.getenv("GEMINI_API_KEY")
-    )
 
     # Read the dummy 10-K
     file_path = os.path.join(os.path.dirname(__file__), 'data', 'nvda_2024_10k.md')
@@ -43,7 +38,7 @@ def main():
         item_section = chunk.metadata.get("H1", "Unknown")
         text = f"Context: Company: NVDA | Year: 2024 | Section: {item_section}\n\n{chunk.page_content}"
         
-        embedding = emb.embed_query(text)
+        embedding = embed_text(text)
         
         vectors.append({
             "id": f"nvda-2024-{i}",

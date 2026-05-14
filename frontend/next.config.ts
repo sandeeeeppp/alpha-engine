@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Disable gzip compression — it buffers SSE chunks before sending
+  compress: false,
 };
 
 export default nextConfig;
